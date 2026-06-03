@@ -1,0 +1,6 @@
+@FloodAssessment.API_HostAddress = http://localhost:5167
+
+GET {{FloodAssessment.API_HostAddress}}/weatherforecast/
+Accept: application/json
+
+###
