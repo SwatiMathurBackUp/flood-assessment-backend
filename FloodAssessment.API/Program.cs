@@ -43,6 +43,8 @@ builder.Services.AddScoped<CloudinaryService>();
 builder.Services.AddScoped<AssessmentService>();
 builder.Services.AddScoped<AuthService>();
 builder.Services.AddScoped<FarmService>();
+builder.Services.AddScoped<UserService>();
+builder.Services.AddScoped<FarmService>();
 
 // CORS
 builder.Services.AddCors(options =>

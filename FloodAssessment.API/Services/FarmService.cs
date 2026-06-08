@@ -1,6 +1,7 @@
 using FloodAssessment.API.Data;
 using FloodAssessment.API.DTOs;
 using Microsoft.EntityFrameworkCore;
+using FloodAssessment.API.Models; 
 
 namespace FloodAssessment.API.Services
 {
@@ -36,7 +37,7 @@ namespace FloodAssessment.API.Services
                 CreatedAt = f.CreatedAt,
                 CompletedAt = f.CompletedAt,
                 AssessmentId = f.AssessmentId,
-                AssignedToName = f.AssignedTo.Name
+                AssignedToUserName  = f.AssignedTo.Name
             }).ToList();
         }
 
@@ -62,23 +63,41 @@ namespace FloodAssessment.API.Services
                 CreatedAt = f.CreatedAt,
                 CompletedAt = f.CompletedAt,
                 AssessmentId = f.AssessmentId,
-                AssignedToName = f.AssignedTo.Name
+                AssignedToUserId = f.AssignedToUserId,  
+                AssignedToUserName  = f.AssignedTo.Name
             }).ToList();
         }
 
         // Update farm status
-        public async Task<bool> UpdateStatusAsync(int farmId, string status, int userId)
+        public async Task<FarmAssignmentResponseDto?> UpdateStatusAsync(int farmId, string status, int userId)
         {
             var farm = await _context.FarmAssignments
                 .FirstOrDefaultAsync(f => f.Id == farmId && f.AssignedToUserId == userId);
 
-            if (farm == null) return false;
+            if (farm == null)
+                return null;
 
             farm.Status = status;
-            if (status == "Completed") farm.CompletedAt = DateTime.UtcNow;
+            if (status == FarmStatus.Completed)
+                farm.CompletedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
-            return true;
+            var result = new FarmAssignmentResponseDto
+            {
+                Id = farm.Id,
+                FarmName = farm.FarmName,
+                OwnerName = farm.OwnerName,
+                Address = farm.Address,
+                Latitude = farm.Latitude,
+                Longitude = farm.Longitude,
+                EstimatedChickens = farm.EstimatedChickens,
+                Status = farm.Status,
+                CreatedAt = farm.CreatedAt,
+                CompletedAt = farm.CompletedAt,
+                AssignedToUserId = farm.AssignedToUserId,
+                AssignedToUserName = farm.AssignedTo?.Name
+            };
+            return result;
         }
 
         // Get map pins
@@ -108,5 +127,106 @@ namespace FloodAssessment.API.Services
                 ChickenCount = f.Assessment?.ChickenCount
             }).ToList();
         }
+
+        public async Task<FarmDto> CreateFarmAsync(CreateFarmDto dto)
+{
+    var farm = new FarmAssignment  // ✅ FIXED: Create entity, not DTO
+    {
+        FarmName = dto.FarmName,
+        OwnerName = dto.OwnerName,
+        Address = dto.Address,
+        Latitude = dto.Latitude,
+        Longitude = dto.Longitude,
+        EstimatedChickens = dto.EstimatedChickens,
+        Status = FarmStatus.Pending,
+        CreatedAt = DateTime.UtcNow
+    };
+
+    _context.FarmAssignments.Add(farm);
+    await _context.SaveChangesAsync();
+
+    return new FarmDto
+    {
+        Id = farm.Id,
+        FarmName = farm.FarmName,
+        OwnerName = farm.OwnerName,
+        Address = farm.Address,
+        EstimatedChickens = farm.EstimatedChickens,
+        Status = farm.Status,
+        CreatedAt = farm.CreatedAt
+    };
+}
+
+    public async Task<FarmAssignmentResponseDto> AssignFarmAsync(
+    int farmId,
+    int assessorUserId)
+{
+    var farm = await _context.FarmAssignments
+        .Include(f => f.AssignedTo)
+        .FirstOrDefaultAsync(x => x.Id == farmId);
+
+    if (farm == null)
+        throw new KeyNotFoundException("Farm not found");
+
+    if (farm.AssignedToUserId.HasValue && farm.AssignedToUserId.Value != 0)
+        throw new InvalidOperationException("Farm is already assigned and cannot be changed");
+
+    var assessor = await _context.Users
+        .FirstOrDefaultAsync(x => x.Id == assessorUserId);
+
+    if (assessor == null)
+        throw new KeyNotFoundException("Assessor not found");
+
+    if (assessor.Role != "Assessor")
+        throw new InvalidOperationException("User must be an assessor");
+
+    // ✅ Assign the farm
+    farm.AssignedToUserId = assessorUserId;
+    farm.Status = FarmStatus.Pending;
+
+    await _context.SaveChangesAsync();
+
+    // ✅ Re-fetch the farm to ensure all data is loaded
+    var updatedFarm = await _context.FarmAssignments
+        .Include(f => f.AssignedTo)
+        .FirstOrDefaultAsync(x => x.Id == farmId);
+
+    return new FarmAssignmentResponseDto
+    {
+        Id = updatedFarm.Id,
+        FarmName = updatedFarm.FarmName,
+        OwnerName = updatedFarm.OwnerName,
+        Address = updatedFarm.Address,
+        Latitude = updatedFarm.Latitude,
+        Longitude = updatedFarm.Longitude,
+        EstimatedChickens = updatedFarm.EstimatedChickens,
+        Status = updatedFarm.Status,
+        CreatedAt = updatedFarm.CreatedAt,
+        CompletedAt = updatedFarm.CompletedAt,
+        AssessmentId = updatedFarm.AssessmentId,
+        AssignedToUserName  = updatedFarm.AssignedTo?.Name ?? "Unassigned"
+    };
+}
+
+   public async Task<FarmDetailsDto?> GetFarmByIdAsync(int id)
+{
+    return await _context.FarmAssignments
+        .Include(x => x.AssignedTo)  // ✅ CHANGED from AssignedToUser
+        .Where(x => x.Id == id)
+        .Select(x => new FarmDetailsDto
+        {
+            Id = x.Id,
+            FarmName = x.FarmName,
+            OwnerName = x.OwnerName,
+            Address = x.Address,
+            Latitude = x.Latitude,
+            Longitude = x.Longitude,
+            EstimatedChickens = x.EstimatedChickens,
+            Status = x.Status,
+            AssignedToUserId = x.AssignedToUserId,
+            AssignedToUserName = x.AssignedTo.Name  // ✅ CHANGED from AssignedToUser
+        })
+        .FirstOrDefaultAsync();
+}
     }
 }

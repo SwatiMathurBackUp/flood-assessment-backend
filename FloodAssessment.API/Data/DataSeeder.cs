@@ -56,7 +56,7 @@ namespace FloodAssessment.API.Data
                     Latitude = 35.9582,
                     Longitude = -82.7541,
                     EstimatedChickens = 12000,
-                    Status = "Pending",
+                    Status = FarmStatus.Pending,
                     AssignedToUserId = john.Id,
                     CreatedAt = DateTime.UtcNow
                 },
@@ -68,7 +68,7 @@ namespace FloodAssessment.API.Data
                     Latitude = 35.9123,
                     Longitude = -82.7234,
                     EstimatedChickens = 8500,
-                    Status = "Pending",
+                    Status = FarmStatus.Pending,
                     AssignedToUserId = john.Id,
                     CreatedAt = DateTime.UtcNow
                 },
@@ -80,7 +80,7 @@ namespace FloodAssessment.API.Data
                     Latitude = 35.9876,
                     Longitude = -82.8123,
                     EstimatedChickens = 15000,
-                    Status = "Pending",
+                    Status = FarmStatus.Pending,
                     AssignedToUserId = sarah.Id,
                     CreatedAt = DateTime.UtcNow
                 },
@@ -92,7 +92,7 @@ namespace FloodAssessment.API.Data
                     Latitude = 35.9345,
                     Longitude = -82.7890,
                     EstimatedChickens = 9200,
-                    Status = "Pending",
+                    Status = FarmStatus.Pending,
                     AssignedToUserId = sarah.Id,
                     CreatedAt = DateTime.UtcNow
                 },
@@ -104,7 +104,7 @@ namespace FloodAssessment.API.Data
                     Latitude = 35.9654,
                     Longitude = -82.8456,
                     EstimatedChickens = 11000,
-                    Status = "Pending",
+                    Status = FarmStatus.Pending,
                     AssignedToUserId = mike.Id,
                     CreatedAt = DateTime.UtcNow
                 }

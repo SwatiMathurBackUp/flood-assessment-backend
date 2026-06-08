@@ -65,15 +65,13 @@ namespace FloodAssessment.API.Services
             _context.Assessments.Add(assessment);
             await _context.SaveChangesAsync();
 
-            // Update farm assignment status to Completed
+            // Update farm assignment status to Completed using FarmAssignmentId
             var farm = await _context.FarmAssignments
-                .FirstOrDefaultAsync(f => f.AssignedToUserId == userId
-                    && f.Status != "Completed"
-                    && f.Address == dto.Address);
+                .FirstOrDefaultAsync(f => f.Id == dto.FarmAssignmentId);
 
             if (farm != null)
             {
-                farm.Status = "Completed";
+                farm.Status = FarmStatus.Completed;
                 farm.AssessmentId = assessment.Id;
                 farm.CompletedAt = DateTime.UtcNow;
                 await _context.SaveChangesAsync();
@@ -148,9 +146,9 @@ namespace FloodAssessment.API.Services
                 Bad = assessments.Count(a => a.Condition == "Bad"),
                 TotalChickens = assessments.Sum(a => a.ChickenCount),
                 TotalFarms = farms.Count,
-                PendingFarms = farms.Count(f => f.Status == "Pending"),
-                InProgressFarms = farms.Count(f => f.Status == "InProgress"),
-                CompletedFarms = farms.Count(f => f.Status == "Completed")
+                PendingFarms = farms.Count(f => f.Status == FarmStatus.Pending),
+                InProgressFarms = farms.Count(f => f.Status == FarmStatus.InProgress),
+                CompletedFarms = farms.Count(f => f.Status == FarmStatus.Completed)
             };
         }
 
@@ -178,5 +176,51 @@ namespace FloodAssessment.API.Services
                 }).ToList()
             };
         }
+       public async Task<FarmAssignmentResponseDto> AssignFarmAsync(
+    int farmId,
+    int assessorUserId)
+{
+    var farm = await _context.FarmAssignments
+        .Include(f => f.AssignedTo)  //  Include assessor
+        .FirstOrDefaultAsync(x => x.Id == farmId);
+
+    if (farm == null)
+        throw new KeyNotFoundException("Farm not found");
+
+    //  PREVENT REASSIGNMENT if already assigned
+    if (farm.AssignedToUserId != null && farm.AssignedToUserId != 0)
+        throw new InvalidOperationException("Farm is already assigned and cannot be changed");
+
+    var assessor = await _context.Users
+        .FirstOrDefaultAsync(x => x.Id == assessorUserId);
+
+    if (assessor == null)
+        throw new KeyNotFoundException("Assessor not found");
+
+    if (assessor.Role != "Assessor")
+        throw new InvalidOperationException("User must be an assessor");
+
+    farm.AssignedToUserId = assessorUserId;
+    farm.Status = FarmStatus.Pending;  //  Keep Pending, don't change to Completed
+
+    await _context.SaveChangesAsync();
+
+    // Return complete response with all fields
+    return new FarmAssignmentResponseDto
+    {
+        Id = farm.Id,
+        FarmName = farm.FarmName,
+        OwnerName = farm.OwnerName,
+        Address = farm.Address,
+        Latitude = farm.Latitude,
+        Longitude = farm.Longitude,
+        EstimatedChickens = farm.EstimatedChickens,  //  Include chickens
+        Status = farm.Status,
+        CreatedAt = farm.CreatedAt,
+        CompletedAt = farm.CompletedAt,
+        AssessmentId = farm.AssessmentId,
+        AssignedToUserName  = farm.AssignedTo.Name  // Include assigned name
+    };
+}
     }
 }
